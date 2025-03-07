@@ -7,8 +7,7 @@ name = "pycodif"
 description = "A short description of your project"
 authors = [{ name = "Jay Smallwood", email = "justin.d.smallwood@gmail.com" }]
 dependencies = [
-    # List your dependencies here, e.g.:
-    # "numpy>=1.24.0",
+    "numpy>2.0.0",
 ]
 dynamic = ["version"]
 
