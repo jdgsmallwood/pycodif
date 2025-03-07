@@ -1,22 +1,19 @@
-import struct
 import math
+import struct
+
 import numpy as np
 
 
 class CODIFHeader:
-    def __init__(self, filename: str):
-        self.filename = filename
-        with open(self.filename, "rb") as f:
-            self.parse_header(f)
+    def __init__(self, f):
+        self.parse_header(f)
 
-            self.effective_sample_size = self.sample_size * 2**self.complex  # bits
-            self.channel_block_size_bits = self.effective_sample_size  # bits
-            self.channel_block_size_bytes = self.channel_block_size_bits / 8
-            self.channel_blocks_per_sample_block = math.floor(
-                self.sample_block_length * 64 / self.channel_block_size_bits
-            )
-
-            self.read_data(f)
+        self.effective_sample_size = self.sample_size * 2**self.complex  # bits
+        self.channel_block_size_bits = self.effective_sample_size  # bits
+        self.channel_block_size_bytes = self.channel_block_size_bits / 8
+        self.channel_blocks_per_sample_block = math.floor(
+            self.sample_block_length * 64 / self.channel_block_size_bits
+        )
 
     def parse_header(self, f):
         byte_data = f.read(4)
@@ -91,21 +88,32 @@ class CODIFHeader:
         byte_code = f.read(18)
         self.metadata_bytes = struct.unpack("<18B", byte_code)
 
-    def read_data(self, f):
-        data_array_bytes = f.read(8 * self.data_array_length)
-        number_of_samples = int(self.data_array_length / self.sample_block_length)
+
+class CODIF:
+    def __init__(self, filename: str):
+        frames = []
+        with open(filename, "rb") as f:
+            while f.read(1):
+                f.seek(-1, 1)  # if not end of file - then reset to before the f.read()
+                header = CODIFHeader(f)
+                data = self.read_data(f, header)
+                frames.append(header, data)
+
+    def read_data(self, f, header: CODIFHeader):
+        data_array_bytes = f.read(8 * header.data_array_length)
+        number_of_samples = int(header.data_array_length / header.sample_block_length)
         # samples = data_array_bytes / self.sample_block_length
 
         sample_groups = []
         for sample in range(number_of_samples):
-            sample_start = sample * self.sample_block_length * 8
-            sample_end = sample_start + self.sample_block_length * 8
+            sample_start = sample * header.sample_block_length * 8
+            sample_end = sample_start + header.sample_block_length * 8
             sample_data = data_array_bytes[sample_start:sample_end]
 
             channels = []
-            for channel in range(self.channels):
-                channel_start = channel * int(self.channel_block_size_bytes)
-                channel_end = channel_start + int(self.channel_block_size_bytes)
+            for channel in range(header.channels):
+                channel_start = channel * int(header.channel_block_size_bytes)
+                channel_end = channel_start + int(header.channel_block_size_bytes)
                 channel_data = sample_data[channel_start:channel_end]
 
                 real_part, imag_part = struct.unpack("<2H", channel_data)

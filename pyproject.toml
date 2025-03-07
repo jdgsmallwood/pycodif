@@ -14,7 +14,8 @@ dynamic = ["version"]
 [project.optional-dependencies]
 dev = [
     "ruff",
-    "pytest"
+    "pytest",
+    "pre-commit",
 ]
 
 [tool.hatch.metadata]
@@ -26,3 +27,6 @@ packages = ["src/pycodif"]
 
 [tool.hatch.version]
 path = "src/pycodif/_version.py"
+
+[toiol.ruff]
+extend-select = ["I"] # allows import sorting
