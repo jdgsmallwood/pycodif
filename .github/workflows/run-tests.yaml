@@ -19,7 +19,7 @@ jobs:
         run: |
           pip install --upgrade pip
           pip install uv
-          uv --system pip install hatch
+          uv pip install --system hatch
 
       - name: Run tests
         run: hatch test 
