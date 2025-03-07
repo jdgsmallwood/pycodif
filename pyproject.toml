@@ -1,0 +1,29 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pycodif"
+description = "A short description of your project"
+authors = [{ name = "Jay Smallwood", email = "justin.d.smallwood@gmail.com" }]
+dependencies = [
+    # List your dependencies here, e.g.:
+    # "numpy>=1.24.0",
+]
+dynamic = ["version"]
+
+[project.optional-dependencies]
+dev = [
+    "ruff",
+    "pytest"
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pycodif"] 
+
+
+[tool.hatch.version]
+path = "src/pycodif/_version.py"
