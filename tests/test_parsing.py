@@ -1,4 +1,4 @@
-from pycodif.parsing import CODIFHeader
+from pycodif.parsing import CODIFFrame, CODIFHeader
 
 
 class TestCODIFHeader:
@@ -39,8 +39,17 @@ class TestCODIFHeader:
             assert header.channel_block_size_bytes == 16 * 2 / 8
             assert header.channel_blocks_per_sample_block == header.channels
 
-            # assert (
-            #     len(header.data_array)
-            #     == header.data_array_length / header.sample_block_length
-            # )
-            # assert len(header.data_array[0]) == header.channels
+
+class TestCODIFFrame:
+    def test_data_parsing(self):
+        with open("tests/test_files/test_codif.codif", "rb") as f:
+            codif = CODIFFrame(f)
+        assert hasattr(codif, "header")
+        assert hasattr(codif, "data_array")
+
+    # assert isinstance(codif.data_array, np.array)
+    # assert (
+    #     len(header.data_array)
+    #     == header.data_array_length / header.sample_block_length
+    # )
+    # assert len(header.data_array[0]) == header.channels

@@ -29,7 +29,6 @@ class CODIFHeader:
         self.reference_epoch = int(byte_0)
         self.sample_size = int(byte_1)
 
-        print(packed_bits_1)
         self.sample_representation = int(packed_bits_1 & 0xF)  # this will be bits 4-7
         self.cal_enabled = int((packed_bits_1 >> 3) & 0x1)
         self.complex = int((packed_bits_1 >> 2) & 0x1)
@@ -89,6 +88,37 @@ class CODIFHeader:
         self.metadata_bytes = struct.unpack("<18B", byte_code)
 
 
+class CODIFFrame:
+    def __init__(self, f):
+        self.header = CODIFHeader(f)
+        self.data = self.read_data(f)
+
+    def read_data(self, f):
+        data_array_bytes = f.read(8 * self.header.data_array_length)
+        number_of_samples = int(
+            self.header.data_array_length / self.header.sample_block_length
+        )
+        # samples = data_array_bytes / self.sample_block_length
+
+        sample_groups = []
+        for sample in range(number_of_samples):
+            sample_start = sample * self.header.sample_block_length * 8
+            sample_end = sample_start + self.header.sample_block_length * 8
+            sample_data = data_array_bytes[sample_start:sample_end]
+
+            channels = []
+            for channel in range(self.header.channels):
+                channel_start = channel * int(self.header.channel_block_size_bytes)
+                channel_end = channel_start + int(self.header.channel_block_size_bytes)
+                channel_data = sample_data[channel_start:channel_end]
+
+                real_part, imag_part = struct.unpack("<2H", channel_data)
+                channels.append((real_part, imag_part))
+            sample_groups.append(channels)
+        # sample_blocks = struct.unpack(struct_string, data_array_bytes)
+        self.data_array = np.array(sample_groups)
+
+
 class CODIF:
     def __init__(self, filename: str):
         frames = []
@@ -97,27 +127,4 @@ class CODIF:
                 f.seek(-1, 1)  # if not end of file - then reset to before the f.read()
                 header = CODIFHeader(f)
                 data = self.read_data(f, header)
-                frames.append(header, data)
-
-    def read_data(self, f, header: CODIFHeader):
-        data_array_bytes = f.read(8 * header.data_array_length)
-        number_of_samples = int(header.data_array_length / header.sample_block_length)
-        # samples = data_array_bytes / self.sample_block_length
-
-        sample_groups = []
-        for sample in range(number_of_samples):
-            sample_start = sample * header.sample_block_length * 8
-            sample_end = sample_start + header.sample_block_length * 8
-            sample_data = data_array_bytes[sample_start:sample_end]
-
-            channels = []
-            for channel in range(header.channels):
-                channel_start = channel * int(header.channel_block_size_bytes)
-                channel_end = channel_start + int(header.channel_block_size_bytes)
-                channel_data = sample_data[channel_start:channel_end]
-
-                real_part, imag_part = struct.unpack("<2H", channel_data)
-                channels.append((real_part, imag_part))
-            sample_groups.append(channels)
-        # sample_blocks = struct.unpack(struct_string, data_array_bytes)
-        self.data_array = np.array(sample_groups)
+                frames.append((header, data))
