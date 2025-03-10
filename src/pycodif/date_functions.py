@@ -1,6 +1,8 @@
 import math
 from datetime import date, datetime, timedelta
 
+import numpy as np
+
 from pycodif.constants import CODIF_BASE_YEAR
 
 
@@ -65,3 +67,28 @@ def calc_frame_time_offset(header) -> float:
     )
 
     return offset
+
+
+def calc_time_of_all_samples_in_frame(header) -> np.array:
+    """Gives a list of timestamps for all samples in the frame.
+
+    This will be given by the sample number of each sample in the frame.
+
+    """
+    # Need to be slightly careful here with packing of samples and if there is any blank space left over at the end.
+    number_of_samples_in_frame = math.floor(
+        header.data_array_length / header.sample_block_length
+    )
+
+    start_of_frame_offset = calc_frame_time_offset(header)
+
+    time_per_sample = (
+        header.alignment_period / header.sample_periods_per_alignment_period
+    )
+
+    sample_offsets = np.array(
+        [i * time_per_sample for i in range(number_of_samples_in_frame)]
+    )
+    sample_offsets += start_of_frame_offset
+
+    return sample_offsets
