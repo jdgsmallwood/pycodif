@@ -28,5 +28,5 @@ packages = ["src/pycodif"]
 [tool.hatch.version]
 path = "src/pycodif/_version.py"
 
-[toiol.ruff]
+[tool.ruff]
 extend-select = ["I"] # allows import sorting

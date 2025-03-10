@@ -1,3 +1,7 @@
+from datetime import datetime
+
+import numpy as np
+
 from pycodif.parsing import CODIFFrame, CODIFHeader
 
 
@@ -38,6 +42,17 @@ class TestCODIFHeader:
             assert header.channel_block_size_bits == 16 * 2
             assert header.channel_block_size_bytes == 16 * 2 / 8
             assert header.channel_blocks_per_sample_block == header.channels
+
+    def test_timestamp(self):
+        with open("tests/test_files/test_codif.codif", "rb") as f:
+            header = CODIFHeader(f)
+            assert header.epoch_date == datetime(2024, 7, 1, 0, 0, 0)
+            # Yet to be known if this is the correct datetime for the observation - need to cross-check with AJ
+            assert header.start_alignment_period_timestamp == datetime(
+                2024, 10, 22, 1, 9, 40
+            )
+
+            assert np.isclose(header.frame_time_offset, 16.120, atol=0.001)
 
 
 class TestCODIFFrame:

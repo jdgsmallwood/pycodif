@@ -176,3 +176,5 @@ cython_debug/
 vela_jimble_output.codif
 
 .vscode/
+
+.DS_Store

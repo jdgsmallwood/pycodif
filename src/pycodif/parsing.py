@@ -3,6 +3,12 @@ import struct
 
 import numpy as np
 
+from pycodif.date_functions import (
+    calc_epoch_base,
+    calc_frame_time_offset,
+    calc_start_alignment_period_timestamp,
+)
+
 
 class CODIFHeader:
     def __init__(self, f):
@@ -14,6 +20,13 @@ class CODIFHeader:
         self.channel_blocks_per_sample_block = math.floor(
             self.sample_block_length * 64 / self.channel_block_size_bits
         )
+
+        self.epoch_date = calc_epoch_base(self.reference_epoch)
+        self.start_alignment_period_timestamp = calc_start_alignment_period_timestamp(
+            self.epoch_date, self.epoch_offset
+        )
+
+        self.frame_time_offset = calc_frame_time_offset(self)
 
     def parse_header(self, f):
         byte_data = f.read(4)
