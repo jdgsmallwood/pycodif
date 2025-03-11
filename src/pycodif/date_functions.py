@@ -69,7 +69,7 @@ def calc_frame_time_offset(header) -> float:
     return offset
 
 
-def calc_time_of_all_samples_in_frame(header) -> np.array:
+def calc_time_of_all_samples_in_frame(header) -> np.ndarray:
     """Gives a list of timestamps for all samples in the frame.
 
     This will be given by the sample number of each sample in the frame.
@@ -86,9 +86,9 @@ def calc_time_of_all_samples_in_frame(header) -> np.array:
         header.alignment_period / header.sample_periods_per_alignment_period
     )
 
-    sample_offsets = np.array(
-        [i * time_per_sample for i in range(number_of_samples_in_frame)]
-    )
-    sample_offsets += start_of_frame_offset
+    sample_offsets = [
+        i * time_per_sample + start_of_frame_offset
+        for i in range(number_of_samples_in_frame)
+    ]
 
-    return sample_offsets
+    return np.array(sample_offsets)

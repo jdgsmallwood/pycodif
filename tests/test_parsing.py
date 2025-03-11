@@ -2,7 +2,7 @@ from datetime import datetime
 
 import numpy as np
 
-from pycodif.parsing import CODIFFrame, CODIFHeader
+from pycodif.parsing import CODIF, CODIFFrame, CODIFHeader
 
 
 class TestCODIFHeader:
@@ -17,6 +17,8 @@ class TestCODIFHeader:
             assert header.invalid == 0
             assert header.complex == 1
             assert header.cal_enabled == 0
+
+            # Revisit this one - it should be 1.
             assert header.sample_representation == 4
 
             assert header.version == 3
@@ -53,6 +55,9 @@ class TestCODIFHeader:
             )
 
             assert np.isclose(header.frame_time_offset, 16.120, atol=0.001)
+            assert header.start_frame_timestamp == datetime(
+                2024, 10, 22, 1, 9, 56, 120485
+            )
 
 
 class TestCODIFFrame:
@@ -61,6 +66,17 @@ class TestCODIFFrame:
             codif = CODIFFrame(f)
         assert hasattr(codif, "header")
         assert hasattr(codif, "data_array")
+        assert hasattr(codif, "sample_timestamps")
+
+    def test_data_values(self):
+        with open("tests/test_files/test_codif.codif", "rb") as f:
+            codif = CODIFFrame(f)
+
+        assert isinstance(codif.data_array, np.ndarray)
+        assert codif.data_array[0, 0] == 65513 + 45j
+        assert codif.data_array[0, -1] == 113 + 65447j
+        assert codif.data_array[-1, 0] == 45j
+        assert codif.data_array[-1, -1] == 65493 + 58j
 
     # assert isinstance(codif.data_array, np.array)
     # assert (
@@ -68,3 +84,15 @@ class TestCODIFFrame:
     #     == header.data_array_length / header.sample_block_length
     # )
     # assert len(header.data_array[0]) == header.channels
+
+
+class TestCODIF:
+    def test_parsing(self):
+        codif = CODIF("tests/test_files/test_codif.codif")
+        assert hasattr(codif, "frames")
+
+    def test_timestamps(self):
+        codif = CODIF("tests/test_files/test_codif.codif")
+        assert hasattr(codif, "timestamps")
+        assert isinstance(codif.timestamps, np.ndarray)
+        assert len(codif.timestamps.shape) == 1

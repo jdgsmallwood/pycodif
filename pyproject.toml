@@ -4,12 +4,23 @@ build-backend = "hatchling.build"
 
 [project]
 name = "pycodif"
-description = "A short description of your project"
+description = "A package to decode CODIF files for radio astronomy data."
 authors = [{ name = "Jay Smallwood", email = "justin.d.smallwood@gmail.com" }]
 dependencies = [
     "numpy>2.0.0",
+    "matplotlib",
+    "tqdm",
+    "loguru",
 ]
 dynamic = ["version"]
+license-files = ["LICEN[CS]E*"]
+readme = "README.md"
+requires-python = ">3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
 
 [project.optional-dependencies]
 dev = [

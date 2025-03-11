@@ -1,12 +1,17 @@
 import math
 import struct
+from collections import defaultdict
+from datetime import timedelta
 
 import numpy as np
+from loguru import logger
+from tqdm import tqdm
 
 from pycodif.date_functions import (
     calc_epoch_base,
     calc_frame_time_offset,
     calc_start_alignment_period_timestamp,
+    calc_time_of_all_samples_in_frame,
 )
 
 
@@ -27,13 +32,13 @@ class CODIFHeader:
         )
 
         self.frame_time_offset = calc_frame_time_offset(self)
+        self.start_frame_timestamp = self.start_alignment_period_timestamp + timedelta(
+            seconds=self.frame_time_offset
+        )
 
     def parse_header(self, f):
-        byte_data = f.read(4)
-        self.data_frame_number = int(struct.unpack("<I", byte_data)[0])
-
-        byte_data = f.read(4)
-        self.epoch_offset = int(struct.unpack("<I", byte_data)[0])
+        byte_data = f.read(8)
+        self.data_frame_number, self.epoch_offset = struct.unpack("<II", byte_data)
 
         byte_data = f.read(8)
         byte_0, byte_1, packed_bits_1, packed_bits_2, byte4, byte5, byte6, byte7 = (
@@ -77,15 +82,15 @@ class CODIFHeader:
         # 0-1 Channels
         # 2-3 Sample Block Length in units of 8 bytes
         # 4-7 Data array length in units of 8 bytes
-        byte_code = f.read(8)
-        self.channels, self.sample_block_length, self.data_array_length = struct.unpack(
-            "<HHI", byte_code
-        )
-
         # Word 4
         # 0-7 sample periods per alignment period
-        byte_code = f.read(8)
-        self.sample_periods_per_alignment_period = struct.unpack("<Q", byte_code)[0]
+        byte_code = f.read(16)
+        (
+            self.channels,
+            self.sample_block_length,
+            self.data_array_length,
+            self.sample_periods_per_alignment_period,
+        ) = struct.unpack("<HHIQ", byte_code)
 
         # word 5
         # 0-3 synchronisation sequence
@@ -104,40 +109,135 @@ class CODIFHeader:
 class CODIFFrame:
     def __init__(self, f):
         self.header = CODIFHeader(f)
-        self.data = self.read_data(f)
+        self.sample_timestamps = calc_time_of_all_samples_in_frame(self.header)
+        self.read_data(f)
 
     def read_data(self, f):
         data_array_bytes = f.read(8 * self.header.data_array_length)
-        number_of_samples = int(
+        self.number_of_samples = int(
             self.header.data_array_length / self.header.sample_block_length
         )
-        # samples = data_array_bytes / self.sample_block_length
 
-        sample_groups = []
-        for sample in range(number_of_samples):
-            sample_start = sample * self.header.sample_block_length * 8
-            sample_end = sample_start + self.header.sample_block_length * 8
-            sample_data = data_array_bytes[sample_start:sample_end]
+        # this will be little endian by default
+        data_array = np.frombuffer(data_array_bytes, dtype=np.uint16)
+        data_array = data_array.reshape(self.number_of_samples, self.header.channels, 2)
+        data_array = data_array.transpose(1, 0, 2)
 
-            channels = []
-            for channel in range(self.header.channels):
-                channel_start = channel * int(self.header.channel_block_size_bytes)
-                channel_end = channel_start + int(self.header.channel_block_size_bytes)
-                channel_data = sample_data[channel_start:channel_end]
-
-                real_part, imag_part = struct.unpack("<2H", channel_data)
-                channels.append((real_part, imag_part))
-            sample_groups.append(channels)
-        # sample_blocks = struct.unpack(struct_string, data_array_bytes)
-        self.data_array = np.array(sample_groups)
+        self.data_array = data_array[..., 0] + 1j * data_array[..., 1]
 
 
 class CODIF:
     def __init__(self, filename: str):
-        frames = []
+        self.frames = {}
+
+        logger.info("Starting file decode...")
         with open(filename, "rb") as f:
             while f.read(1):
                 f.seek(-1, 1)  # if not end of file - then reset to before the f.read()
-                header = CODIFHeader(f)
-                data = self.read_data(f, header)
-                frames.append((header, data))
+                frame = CODIFFrame(f)
+
+                self.frames[
+                    (
+                        frame.header.data_frame_number,
+                        frame.header.thread_id,
+                        frame.header.group_id,
+                        frame.header.secondary_id,
+                        frame.header.station_id,
+                    )
+                ] = frame
+        logger.info("Finished reading file, converting....")
+        self.datasets = defaultdict(lambda: defaultdict(list))
+
+        sorted_keys = sorted(self.frames.keys(), key=lambda x: x[0])
+
+        all_stations = set(a[4] for a in self.frames.keys())
+        all_frames = set([a[0] for a in self.frames.keys()])
+        all_threads = set([a[1] for a in self.frames.keys()])
+        all_groups = set([a[2] for a in self.frames.keys()])
+        # This will get used at some point but comment out for now
+        # all_secondaries = set([a[3] for a in self.frames.keys()])
+
+        array_shape_frames = len(all_frames)
+        array_shape_threads = len(all_threads)
+        array_shape_group = len(all_groups)
+
+        # array_shape_secondary = len(set([a[3] for a in self.frames.keys()]))
+        array_shape_station = len(all_stations)
+        array_shape_channels = self.frames[sorted_keys[0]].header.channels
+        array_shape_samples = (
+            self.frames[sorted_keys[0]].number_of_samples * array_shape_frames
+        )
+
+        array_shape = (
+            array_shape_station,
+            array_shape_group,
+            array_shape_threads,
+            array_shape_channels,
+            array_shape_samples,
+        )
+
+        logger.info("getting timestamps")
+        min_threads = min([a[1] for a in self.frames.keys()])
+        min_group = min([a[2] for a in self.frames.keys() if a[1] == min_threads])
+        min_secondary = min(
+            [
+                a[3]
+                for a in self.frames.keys()
+                if a[1] == min_threads and a[2] == min_group
+            ]
+        )
+        min_station = min(
+            [
+                a[4]
+                for a in self.frames.keys()
+                if a[1] == min_threads and a[2] == min_group and a[3] == min_secondary
+            ]
+        )
+
+        keys_for_timestamp = sorted(
+            [
+                a
+                for a in self.frames.keys()
+                if a[1] == min_threads
+                and a[2] == min_group
+                and a[3] == min_secondary
+                and a[4] == min_station
+            ],
+            key=lambda x: x[0],
+        )
+
+        timestamps = []
+        for key in tqdm(keys_for_timestamp):
+            timestamps.append(self.frames[key].sample_timestamps)
+        self.timestamps = np.concatenate(timestamps)
+
+        self.data = np.empty(array_shape, dtype=np.complex64)
+
+        for i, station in enumerate(all_stations):
+            for j, group in enumerate(all_groups):
+                for k, thread in enumerate(all_threads):
+                    vals = defaultdict(list)
+                    for id in sorted(
+                        [
+                            a
+                            for a in self.frames.keys()
+                            if a[1] == thread and a[2] == group and a[4] == station
+                        ],
+                        key=lambda a: a[0],
+                    ):
+                        for channel in range(array_shape_channels):
+                            vals[channel].append(self.frames[id].data_array[channel, :])
+                        del self.frames[id]
+                    for channel in range(array_shape_channels):
+                        self.data[i, j, k, channel] = np.concatenate(vals[channel])
+
+        # for key in tqdm(sorted_keys):
+        #     id = key[1:]
+        #     for channel in range(frame.header.channels):
+        #         self.datasets[id][channel].append(self.frames[key].data_array[channel] )
+        #     self.frames[key] = None
+
+        # logger.info("concatenating datasets...")
+        # for id, val in tqdm(self.datasets.items()):
+        #     for i in val.keys():
+        #         val[i] = np.concatenate(val[i])
