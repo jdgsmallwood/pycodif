@@ -119,11 +119,13 @@ class CODIFFrame:
         )
 
         # this will be little endian by default
-        data_array = np.frombuffer(data_array_bytes, dtype=np.uint16)
+        data_array = np.frombuffer(data_array_bytes, dtype=np.short)
         data_array = data_array.reshape(self.number_of_samples, self.header.channels, 2)
         data_array = data_array.transpose(1, 0, 2)
 
-        self.data_array = data_array[..., 0] + 1j * data_array[..., 1]
+        self.data_array = (data_array[..., 0] + 1j * data_array[..., 1]).astype(
+            np.complex64
+        )
 
 
 class CODIF:
@@ -194,6 +196,9 @@ class CODIF:
             ]
         )
 
+        # Make an assumption that all of the timestamps are the same for now. So we
+        # only have to get the timestamps from one thread group.
+        # Sort these as it is theoretically possible that these are out of order.
         keys_for_timestamp = sorted(
             [
                 a
@@ -212,32 +217,25 @@ class CODIF:
         self.timestamps = np.concatenate(timestamps)
 
         self.data = np.empty(array_shape, dtype=np.complex64)
-
+        logger.info("Concatenating data frames...")
         for i, station in enumerate(all_stations):
             for j, group in enumerate(all_groups):
                 for k, thread in enumerate(all_threads):
-                    vals = defaultdict(list)
-                    for id in sorted(
-                        [
-                            a
-                            for a in self.frames.keys()
-                            if a[1] == thread and a[2] == group and a[4] == station
-                        ],
-                        key=lambda a: a[0],
-                    ):
+                    cursor = defaultdict(int)
+                    for id in [
+                        a
+                        for a in sorted_keys
+                        if a[1] == thread and a[2] == group and a[4] == station
+                    ]:
+                        frame = self.frames[id]
                         for channel in range(array_shape_channels):
-                            vals[channel].append(self.frames[id].data_array[channel, :])
-                        del self.frames[id]
-                    for channel in range(array_shape_channels):
-                        self.data[i, j, k, channel] = np.concatenate(vals[channel])
-
-        # for key in tqdm(sorted_keys):
-        #     id = key[1:]
-        #     for channel in range(frame.header.channels):
-        #         self.datasets[id][channel].append(self.frames[key].data_array[channel] )
-        #     self.frames[key] = None
-
-        # logger.info("concatenating datasets...")
-        # for id, val in tqdm(self.datasets.items()):
-        #     for i in val.keys():
-        #         val[i] = np.concatenate(val[i])
+                            additional_data_length = len(frame.data_array[channel, :])
+                            self.data[
+                                i,
+                                j,
+                                k,
+                                channel,
+                                cursor[channel] : cursor[channel]
+                                + additional_data_length,
+                            ] = frame.data_array[channel, :]
+                            cursor[channel] += additional_data_length

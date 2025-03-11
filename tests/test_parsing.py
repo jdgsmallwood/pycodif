@@ -73,10 +73,11 @@ class TestCODIFFrame:
             codif = CODIFFrame(f)
 
         assert isinstance(codif.data_array, np.ndarray)
-        assert codif.data_array[0, 0] == 65513 + 45j
-        assert codif.data_array[0, -1] == 113 + 65447j
+        assert codif.data_array.dtype == np.dtype("complex64")
+        assert codif.data_array[0, 0] == -23 + 45j
+        assert codif.data_array[0, -1] == 113 - 89j
         assert codif.data_array[-1, 0] == 45j
-        assert codif.data_array[-1, -1] == 65493 + 58j
+        assert codif.data_array[-1, -1] == -43 + 58j
 
     # assert isinstance(codif.data_array, np.array)
     # assert (
