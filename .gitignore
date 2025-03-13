@@ -178,3 +178,11 @@ vela_jimble_output.codif
 .vscode/
 
 .DS_Store
+
+parsing_profile.py
+
+profile.txt
+
+*.npy
+
+*.ipynb

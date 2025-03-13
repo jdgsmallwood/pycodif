@@ -11,6 +11,7 @@ dependencies = [
     "matplotlib",
     "tqdm",
     "loguru",
+    "scipy",
 ]
 dynamic = ["version"]
 license-files = ["LICEN[CS]E*"]

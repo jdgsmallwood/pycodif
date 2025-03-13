@@ -119,7 +119,7 @@ class CODIFFrame:
         )
 
         # this will be little endian by default
-        data_array = np.frombuffer(data_array_bytes, dtype=np.short)
+        data_array = np.frombuffer(data_array_bytes, dtype=np.short).astype(float)
         data_array = data_array.reshape(self.number_of_samples, self.header.channels, 2)
         data_array = data_array.transpose(1, 0, 2)
 
@@ -221,21 +221,16 @@ class CODIF:
         for i, station in enumerate(all_stations):
             for j, group in enumerate(all_groups):
                 for k, thread in enumerate(all_threads):
-                    cursor = defaultdict(int)
-                    for id in [
-                        a
-                        for a in sorted_keys
-                        if a[1] == thread and a[2] == group and a[4] == station
-                    ]:
-                        frame = self.frames[id]
-                        for channel in range(array_shape_channels):
-                            additional_data_length = len(frame.data_array[channel, :])
-                            self.data[
-                                i,
-                                j,
-                                k,
-                                channel,
-                                cursor[channel] : cursor[channel]
-                                + additional_data_length,
-                            ] = frame.data_array[channel, :]
-                            cursor[channel] += additional_data_length
+                    self.data[i, j, k] = np.concatenate(
+                        [
+                            self.frames[id].data_array
+                            for id in [
+                                a
+                                for a in sorted_keys
+                                if a[1] == thread and a[2] == group and a[4] == station
+                            ]
+                        ],
+                        axis=1,
+                    )
+
+        logger.info("Finished writing array!")
