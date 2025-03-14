@@ -1,7 +1,11 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.9.9  
+    rev: v0.10.0  
     hooks:
       - id: ruff
         args: [ --fix ]
-      - id: ruff-format  
+      - id: ruff-format 
+  - repo: https://github.com/kynan/nbstripout
+    rev: 0.8.1 
+    hooks:
+      - id: nbstripout

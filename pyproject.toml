@@ -28,6 +28,7 @@ dev = [
     "ruff",
     "pytest",
     "pre-commit",
+    "nbstripout",
 ]
 
 [tool.hatch.metadata]
