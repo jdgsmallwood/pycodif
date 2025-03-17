@@ -47,7 +47,9 @@ class CODIFHeader:
         self.reference_epoch = int(byte_0)
         self.sample_size = int(byte_1)
 
-        self.sample_representation = int(packed_bits_1 & 0xF)  # this will be bits 4-7
+        self.sample_representation = int(
+            packed_bits_1 >> 4 & 0xF
+        )  # this will be bits 4-7
         self.cal_enabled = int((packed_bits_1 >> 3) & 0x1)
         self.complex = int((packed_bits_1 >> 2) & 0x1)
         self.invalid = int((packed_bits_1 >> 1) & 0x1)
@@ -129,8 +131,9 @@ class CODIFFrame:
 
 
 class CODIF:
-    def __init__(self, filename: str):
+    def __init__(self, filename: str, flatten_groups: bool = False):
         self.frames = {}
+        self.flatten_groups = flatten_groups
 
         logger.info("Starting file decode...")
         with open(filename, "rb") as f:
@@ -170,13 +173,22 @@ class CODIF:
             self.frames[sorted_keys[0]].number_of_samples * array_shape_frames
         )
 
-        array_shape = (
-            array_shape_station,
-            array_shape_group,
-            array_shape_threads,
-            array_shape_channels,
-            array_shape_samples,
-        )
+        if flatten_groups:
+            array_shape = (
+                array_shape_station
+                * array_shape_group
+                * array_shape_threads
+                * array_shape_channels,
+                array_shape_samples,
+            )
+        else:
+            array_shape = (
+                array_shape_station,
+                array_shape_group,
+                array_shape_threads,
+                array_shape_channels,
+                array_shape_samples,
+            )
 
         logger.info("getting timestamps")
         min_threads = min([a[1] for a in self.frames.keys()])
@@ -218,10 +230,11 @@ class CODIF:
 
         self.data = np.empty(array_shape, dtype=np.complex64)
         logger.info("Concatenating data frames...")
+        group_count = 0
         for i, station in enumerate(all_stations):
             for j, group in enumerate(all_groups):
                 for k, thread in enumerate(all_threads):
-                    self.data[i, j, k] = np.concatenate(
+                    channel_data = np.concatenate(
                         [
                             self.frames[id].data_array
                             for id in [
@@ -232,5 +245,12 @@ class CODIF:
                         ],
                         axis=1,
                     )
+                    if not self.flatten_groups:
+                        self.data[i, j, k] = channel_data
+
+                    else:
+                        count = channel_data.shape[0]
+                        self.data[group_count : group_count + count] = channel_data
+                        group_count += count
 
         logger.info("Finished writing array!")

@@ -18,8 +18,7 @@ class TestCODIFHeader:
             assert header.complex == 1
             assert header.cal_enabled == 0
 
-            # Revisit this one - it should be 1.
-            assert header.sample_representation == 4
+            assert header.sample_representation == 1
 
             assert header.version == 3
             assert header.protocol == 7
@@ -79,13 +78,6 @@ class TestCODIFFrame:
         assert codif.data_array[-1, 0] == 45j
         assert codif.data_array[-1, -1] == -43 + 58j
 
-    # assert isinstance(codif.data_array, np.array)
-    # assert (
-    #     len(header.data_array)
-    #     == header.data_array_length / header.sample_block_length
-    # )
-    # assert len(header.data_array[0]) == header.channels
-
 
 class TestCODIF:
     def test_parsing(self):
@@ -97,3 +89,14 @@ class TestCODIF:
         assert hasattr(codif, "timestamps")
         assert isinstance(codif.timestamps, np.ndarray)
         assert len(codif.timestamps.shape) == 1
+
+    def test_two_packet_codif(self):
+        codif = CODIF("tests/test_files/test_codif_two_packets.codif")
+        assert len(codif.frames.keys()) == 2
+        assert len(codif.data.shape) == 5
+
+    def test_two_packet_codif_flatten_groups(self):
+        codif = CODIF(
+            "tests/test_files/test_codif_two_packets.codif", flatten_groups=True
+        )
+        assert len(codif.data.shape) == 2
