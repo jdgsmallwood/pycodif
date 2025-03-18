@@ -32,7 +32,7 @@ class TestCODIFHeader:
             assert header.channels == 8
             assert header.sample_block_length == 4
             assert header.data_array_length == 256
-            assert header.sample_periods_per_alignment_period == 51200000
+            assert header.sample_periods_per_alignment_period == 51_200_000
 
             assert hex(header.synchronisation_sequence) == "0xfeedcafe"
             assert header.metadata_id == 0
