@@ -188,3 +188,5 @@ profile.txt
 *.ipynb
 
 *.csv
+
+notebooks/*.png

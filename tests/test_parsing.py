@@ -1,6 +1,7 @@
 from datetime import datetime
 
 import numpy as np
+import pytest
 
 from pycodif.parsing import CODIF, CODIFFrame, CODIFHeader
 
@@ -60,23 +61,24 @@ class TestCODIFHeader:
 
 
 class TestCODIFFrame:
-    def test_data_parsing(self):
+    @pytest.fixture()
+    def example_frame(self):
         with open("tests/test_files/test_codif.codif", "rb") as f:
             codif = CODIFFrame(f)
-        assert hasattr(codif, "header")
-        assert hasattr(codif, "data_array")
-        assert hasattr(codif, "sample_timestamps")
+        return codif
 
-    def test_data_values(self):
-        with open("tests/test_files/test_codif.codif", "rb") as f:
-            codif = CODIFFrame(f)
+    def test_data_parsing(self, example_frame):
+        assert hasattr(example_frame, "header")
+        assert hasattr(example_frame, "data_array")
+        assert hasattr(example_frame, "sample_timestamps")
 
-        assert isinstance(codif.data_array, np.ndarray)
-        assert codif.data_array.dtype == np.dtype("complex64")
-        assert codif.data_array[0, 0] == -23 + 45j
-        assert codif.data_array[0, -1] == 113 - 89j
-        assert codif.data_array[-1, 0] == 45j
-        assert codif.data_array[-1, -1] == -43 + 58j
+    def test_data_values(self, example_frame):
+        assert isinstance(example_frame.data_array, np.ndarray)
+        assert example_frame.data_array.dtype == np.dtype("complex64")
+        assert example_frame.data_array[0, 0] == -23 + 45j
+        assert example_frame.data_array[0, -1] == 113 - 89j
+        assert example_frame.data_array[-1, 0] == 45j
+        assert example_frame.data_array[-1, -1] == -43 + 58j
 
 
 class TestCODIF:
