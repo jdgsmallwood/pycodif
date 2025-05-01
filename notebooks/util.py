@@ -8,17 +8,17 @@ from scipy.fft import fft, fftshift
 def get_fourier_power_spectrum(data: np.ndarray, segment_size: int) -> np.ndarray:
     window = np.hanning(segment_size)
 
-    n_segments = (data.shape[1] - segment_size) // (segment_size)
+    n_segments = (data.shape[0] - segment_size) // (segment_size)
 
     output = np.zeros((n_segments, segment_size))
 
     for j in range(n_segments):
         start = j * (segment_size)
         end = start + segment_size
-        if end > data.shape[1]:
+        if end > data.shape[0]:
             print("past end of array")
             break
-        sliced_data = data[0, start:end]
+        sliced_data = data[start:end]
 
         ff_transform = fft(sliced_data * window)
         ff_shift = fftshift(ff_transform)

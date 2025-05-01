@@ -188,5 +188,5 @@ profile.txt
 *.ipynb
 
 *.csv
-
+maxsnr*
 notebooks/*.png
